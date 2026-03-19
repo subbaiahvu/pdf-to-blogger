@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF → Blogger Post Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root {
+  --ink:    #0d1b2a;
+  --ink2:   #1a2f44;
+  --gold:   #c8a03c;
+  --gold-l: #f0d878;
+  --cream:  #f6f2e8;
+  --cream2: #ece8db;
+  --cyan:   #0097a7;
+  --cyan-l: #00c8d8;
+  --red:    #c0392b;
+  --green:  #1e6b3a;
+  --muted:  #6b5f40;
+  --border: #d4c89a;
+  --radius: 6px;
+  --shadow: 0 4px 20px rgba(13,27,42,0.1);
+  --shadow-lg: 0 12px 48px rgba(13,27,42,0.18);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Source Serif 4', Georgia, serif;
+  background: #111820;
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── TOP HEADER BAR ── */
+.app-header {
+  background: #080e16;
+  border-bottom: 2px solid var(--gold);
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 58px;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-logo-icon {
+  width: 34px; height: 34px;
+  background: var(--gold);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--ink); font-weight: 900;
+}
+
+.app-logo-text {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-weight: 900;
+  color: #fff;
+}
+
+.app-logo-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+.header-badges {
+  display: flex; gap: 8px; align-items: center;
+}
+
+.h-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 3px;
+  border: 1px solid rgba(200,160,60,0.4);
+  color: rgba(200,160,60,0.7);
+}
+
+/* ── MAIN LAYOUT ── */
+.app-body {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  min-height: calc(100vh - 58px);
+}
+
+/* ── LEFT PANEL ── */
+.left-panel {
+  background: #0d1520;
+  border-right: 1px solid rgba(200,160,60,0.15);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: calc(100vh - 58px);
+  position: sticky;
+  top: 58px;
+}
+
+.panel-section {
+  padding: 24px;
+  border-bottom: 1px solid rgba(200,160,60,0.1);
+}
+
+.panel-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--gold);
+  margin-bottom: 14px; opacity: 0.8;
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed rgba(200,160,60,0.3);
+  border-radius: 8px;
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s;
+  background: rgba(200,160,60,0.03);
+  position: relative;
+}
+
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--gold);
+  background: rgba(200,160,60,0.07);
+}
+
+.drop-icon { font-size: 36px; margin-bottom: 12px; }
+
+.drop-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px; font-weight: 700;
+  color: #fff; margin-bottom: 6px;
+}
+
+.drop-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: rgba(255,255,255,0.35);
+  letter-spacing: 1px;
+}
+
+#file-input { display: none; }
+
+.file-loaded {
+  display: none;
+  align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: rgba(200,160,60,0.1);
+  border: 1px solid rgba(200,160,60,0.3);
+  border-radius: 6px; margin-top: 12px;
+}
+
+.file-loaded.show { display: flex; }
+.file-name { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--gold); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-pages { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(200,160,60,0.5); white-space: nowrap; }
+
+/* Style picker */
+.style-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.style-card {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px; padding: 10px;
+  cursor: pointer; transition: all 0.2s;
+  text-align: center;
+}
+
+.style-card:hover { border-color: rgba(200,160,60,0.4); }
+.style-card.selected { border-color: var(--gold); background: rgba(200,160,60,0.08); }
+
+.style-swatch {
+  width: 100%; height: 30px; border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.style-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 1px;
+  text-transform: uppercase; color: rgba(255,255,255,0.5);
+}
+
+.style-card.selected .style-name { color: var(--gold); }
+
+/* Options */
+.option-row {
+  display: flex; align-items: center;
+  justify-content: space-between; padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.option-label {
+  font-family: 'Source Serif 4', serif;
+  font-size: 13px; color: rgba(255,255,255,0.6);
+}
+
+.toggle {
+  width: 38px; height: 20px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 10px; position: relative;
+  cursor: pointer; transition: background 0.2s;
+  border: none;
+}
+
+.toggle.on { background: var(--gold); }
+
+.toggle::after {
+  content: '';
+  position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  background: #fff; border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle.on::after { transform: translateX(18px); }
+
+/* Convert button */
+.convert-btn {
+  width: 100%; padding: 14px;
+  background: var(--gold);
+  color: var(--ink); border: none;
+  border-radius: 6px; cursor: pointer;
+  font-family: 'Playfair Display', serif;
+  font-size: 16px; font-weight: 700;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  display: flex; align-items: center;
+  justify-content: center; gap: 10px;
+  position: relative; overflow: hidden;
+}
+
+.convert-btn:hover { background: var(--gold-l); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(200,160,60,0.35); }
+.convert-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.convert-btn .spinner {
+  display: none;
+  width: 18px; height: 18px;
+  border: 2px solid rgba(13,27,42,0.3);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.convert-btn.loading .spinner { display: block; }
+.convert-btn.loading .btn-text { opacity: 0.7; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Progress */
+.progress-bar-wrap {
+  display: none;
+  margin-top: 12px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px; overflow: hidden;
+  height: 4px;
+}
+
+.progress-bar-wrap.show { display: block; }
+
+.progress-bar-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--gold), var(--cyan-l));
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.progress-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: rgba(200,160,60,0.6);
+  text-align: center; margin-top: 6px;
+  display: none;
+}
+
+.progress-label.show { display: block; }
+
+/* ── RIGHT PANEL ── */
+.right-panel {
+  background: var(--cream);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Output toolbar */
+.output-toolbar {
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 12px;
+}
+
+.output-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px; font-weight: 700; color: var(--ink);
+}
+
+.toolbar-actions { display: flex; gap: 8px; }
+
+.tool-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 7px 14px; border-radius: 4px;
+  border: 1px solid var(--border);
+  background: #fff; color: var(--ink);
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+
+.tool-btn:hover { background: var(--cream); border-color: var(--gold); }
+.tool-btn.primary { background: var(--ink); color: var(--gold); border-color: var(--ink); }
+.tool-btn.primary:hover { background: var(--ink2); }
+.tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Tab bar */
+.output-tabs {
+  background: #fff;
+  border-bottom: 2px solid var(--border);
+  display: flex; padding: 0 24px;
+}
+
+.out-tab {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; padding: 11px 18px;
+  color: rgba(13,27,42,0.4); cursor: pointer;
+  border: none; background: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px; transition: all 0.15s;
+}
+
+.out-tab:hover { color: var(--ink); }
+.out-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+/* Output area */
+.output-area {
+  flex: 1;
+  overflow-y: auto;
+  max-height: calc(100vh - 58px - 55px - 47px);
+}
+
+/* Preview panel */
+.preview-wrap {
+  padding: 32px;
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+/* Placeholder / empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 400px;
+  text-align: center;
+  padding: 40px;
+}
+
+.empty-icon { font-size: 64px; margin-bottom: 20px; opacity: 0.3; }
+
+.empty-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px; font-weight: 700;
+  color: var(--muted); margin-bottom: 8px;
+}
+
+.empty-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: 1px;
+  color: rgba(107,95,64,0.5); text-transform: uppercase;
+}
+
+/* HTML code panel */
+.code-wrap {
+  position: relative;
+  display: none;
+}
+
+.code-wrap.active { display: block; }
+
+.code-area {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  padding: 24px 32px;
+  background: #0d1117;
+  color: #a8d8a8;
+  border: none;
+  width: 100%;
+  min-height: 400px;
+  resize: none;
+  outline: none;
+  tab-size: 2;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ── POST STYLES — what renders in preview ── */
+
+/* THEME: Classic Navy (CGHS-style) */
+.post-navy .post-cover { border-top: 4px solid #1a0a2e; border-bottom: 3px solid #c8933a; }
+.post-navy .post-header { background: #1a0a2e; }
+.post-navy .post-header-bar { background: #c8933a; color: #1a0a2e; }
+.post-navy .sec-label { color: #1a0a2e; border-left: 4px solid #c8933a; }
+.post-navy .table th { background: #1a0a2e; color: #c8933a; }
+.post-navy .dl-btn { background: #1a0a2e; }
+.post-navy .vp-btn { background: #c8933a; }
+.post-navy .section-hdr { background: #1a0a2e; }
+.post-navy .sig-border { border-top: 3px solid #c8933a; }
+
+/* THEME: Teal Medical */
+.post-teal .post-cover { border-top: 4px solid #0a3d0a; border-bottom: 3px solid #e8a020; }
+.post-teal .post-header { background: #0a3d0a; }
+.post-teal .post-header-bar { background: #e8a020; color: #0a3d0a; }
+.post-teal .sec-label { color: #0a3d0a; border-left: 4px solid #e8a020; }
+.post-teal .table th { background: #0a3d0a; color: #e8a020; }
+.post-teal .dl-btn { background: #0a3d0a; }
+.post-teal .vp-btn { background: #e8a020; }
+.post-teal .section-hdr { background: #0a3d0a; }
+.post-teal .sig-border { border-top: 3px solid #e8a020; }
+
+/* THEME: Treasury Charcoal */
+.post-charcoal .post-cover { border-top: 3px solid #c8a03c; border-bottom: 3px solid #0d1b2a; }
+.post-charcoal .post-header { background: #0d1b2a; }
+.post-charcoal .post-header-bar { background: #c8a03c; color: #0d1b2a; }
+.post-charcoal .sec-label { color: #0d1b2a; border-left: 4px solid #c8a03c; }
+.post-charcoal .table th { background: #0d1b2a; color: #c8a03c; }
+.post-charcoal .dl-btn { background: #0d1b2a; }
+.post-charcoal .vp-btn { background: #c8a03c; }
+.post-charcoal .section-hdr { background: #0d1b2a; }
+.post-charcoal .sig-border { border-top: 3px solid #c8a03c; }
+
+/* THEME: Blue Steel */
+.post-blue .post-cover { border-top: 4px solid #0d2a5e; border-bottom: 3px solid #1a6fc4; }
+.post-blue .post-header { background: #0d2a5e; }
+.post-blue .post-header-bar { background: #1a6fc4; color: #ffffff; }
+.post-blue .sec-label { color: #0d2a5e; border-left: 4px solid #1a6fc4; }
+.post-blue .table th { background: #0d2a5e; color: #a8c8ff; }
+.post-blue .dl-btn { background: #0d2a5e; }
+.post-blue .vp-btn { background: #1a6fc4; }
+.post-blue .section-hdr { background: #0d2a5e; }
+.post-blue .sig-border { border-top: 3px solid #1a6fc4; }
+
+/* Universal post styles */
+.post-wrap {
+  font-family: 'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;
+  font-size: 14px;
+  color: #222;
+  line-height: 1.75;
+}
+
+.post-cover img { width: 100%; display: block; }
+
+.post-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 0;
+}
+
+.post-header-cell {
+  padding: 13px 16px;
+}
+
+.post-header-cell:first-child { border-right: 1px solid rgba(255,255,255,0.1); }
+.post-header-cell:last-child { text-align: right; }
+
+.post-header-label {
+  font-size: 9px; letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 4px; opacity: 0.7;
+}
+
+.post-header-val {
+  font-size: 13px; font-weight: bold;
+  color: #fff;
+}
+
+.post-header-bar {
+  grid-column: 1 / -1;
+  padding: 8px 16px; text-align: center;
+  font-size: 11px; letter-spacing: 2px;
+  text-transform: uppercase; font-weight: bold;
+}
+
+.post-om-title {
+  text-align: center; margin: 20px 0 14px;
+  font-size: 18px; font-weight: bold;
+  letter-spacing: 3px; text-transform: uppercase;
+  padding-bottom: 6px;
+}
+
+.post-subject {
+  margin: 0 0 18px;
+  padding: 12px 16px 12px 18px;
+  background: #f9f9f2;
+  border: 1px solid #d0c8b4;
+}
+
+.post-subject-label {
+  font-size: 9px; letter-spacing: 3px;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+
+.post-subject-text {
+  font-size: 15px; font-weight: bold; line-height: 1.5;
+}
+
+.sec-label {
+  font-size: 14px; font-weight: bold;
+  letter-spacing: 1px; text-transform: uppercase;
+  margin: 22px 0 8px; padding-left: 11px;
+}
+
+.post-para {
+  margin-bottom: 14px; text-align: justify;
+}
+
+.table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-bottom: 18px; }
+.table th { padding: 8px 12px; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; font-weight: normal; border: 1px solid rgba(0,0,0,0.15); }
+.table td { padding: 9px 12px; border: 1px solid #d0c8b4; line-height: 1.7; }
+.table tr:nth-child(even) td { background: #f5f5f5; }
+
+.sn-cell {
+  text-align: center; font-weight: bold;
+  width: 56px; white-space: nowrap;
+}
+
+.section-hdr { padding: 9px 16px; margin: 16px 0 0; }
+.section-hdr-text {
+  font-size: 10px; letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.ref-table-wrap { border: 1px solid #d0c8b4; margin: 0 0 16px; }
+.ref-table-inner { padding: 0; }
+.ref-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ref-table th { padding: 8px 12px; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; font-weight: normal; border: 1px solid rgba(0,0,0,0.15); }
+.ref-table td { padding: 9px 12px; border: 1px solid #d0c8b4; vertical-align: middle; }
+.ref-date { text-align: center; font-weight: bold; white-space: nowrap; width: 80px; }
+.ref-link-cell { text-align: center; width: 220px; }
+
+.btn-pair { display: flex; flex-wrap: nowrap; justify-content: center; align-items: center; gap: 4px; }
+.dl-btn, .vp-btn {
+  display: inline-block; color: #fff;
+  text-decoration: none; padding: 5px 10px;
+  font-size: 11px; letter-spacing: 1px;
+  white-space: nowrap; cursor: pointer;
+  border: none;
+}
+.vp-btn { background: #c8933a; }
+
+.summary-box { border: 1px solid #d0c8b4; margin: 16px 0; }
+.summary-inner { padding: 16px 18px; background: #fafaf6; }
+.summary-title { font-size: 14px; font-weight: bold; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #d0c8b4; }
+.bullet-row { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px dashed #d0c8b4; font-size: 13px; }
+.bullet-arrow { color: #c8933a; width: 18px; flex-shrink: 0; }
+
+.sig-block { border: 1px solid #d0c8b4; margin: 14px 0 22px; }
+.sig-inner { padding: 14px 20px; text-align: center; background: #f9f9f2; }
+.sig-inner .sig-border { margin-bottom: 0; }
+.sig-name { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+.sig-desg { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #666; }
+
+.dl-download-btn {
+  display: block; text-align: center; margin: 26px 0 10px;
+  padding: 13px 34px;
+  color: #fff; text-decoration: none;
+  font-size: 12px; letter-spacing: 2px;
+  text-transform: uppercase; font-weight: bold;
+}
+
+.alert-box { padding: 10px 16px; margin-bottom: 18px; font-size: 13px; line-height: 1.65; }
+.alert-supersedes { background: #2a1015; border-left: 5px solid #e53935; color: #ffcdd2; }
+
+.badge-inline {
+  display: inline-block; font-size: 9px;
+  font-weight: bold; letter-spacing: 1px;
+  padding: 2px 7px; border-radius: 3px;
+  vertical-align: middle; margin-right: 6px;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(200,160,60,0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(200,160,60,0.5); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--ink); color: var(--gold);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; letter-spacing: 1px;
+  padding: 10px 22px; border-radius: 4px;
+  border: 1px solid var(--gold);
+  opacity: 0; transition: all 0.3s;
+  z-index: 999; pointer-events: none;
+}
+
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── EXTRACTED TEXT PANEL ── */
+.extracted-panel {
+  padding: 24px 32px;
+  display: none;
+}
+.extracted-panel.active { display: block; }
+
+.extract-section {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.extract-section-hdr {
+  padding: 10px 16px;
+  background: var(--cream2);
+  border-bottom: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted);
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+.extract-content {
+  padding: 14px 16px;
+  font-size: 13px; line-height: 1.7;
+  color: var(--ink); white-space: pre-wrap;
+  max-height: 200px; overflow-y: auto;
+}
+
+.edit-field {
+  width: 100%; padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px; font-family: 'Source Serif 4', serif;
+  font-size: 13px; color: var(--ink);
+  outline: none; transition: border-color 0.15s;
+  background: #fff;
+}
+
+.edit-field:focus { border-color: var(--gold); }
+
+textarea.edit-field {
+  resize: vertical; min-height: 80px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .app-body { grid-template-columns: 1fr; }
+  .left-panel { max-height: none; position: static; }
+  .output-area { max-height: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="app-logo">
+    <div class="app-logo-icon">B</div>
+    <div>
+      <div class="app-logo-text">BlogPost.ai</div>
+      <div class="app-logo-sub">PDF → Blogger Converter</div>
+    </div>
+  </div>
+  <div class="header-badges">
+    <div class="h-badge">Government OMs</div>
+    <div class="h-badge">Blogger Ready</div>
+    <div class="h-badge">4 Themes</div>
+  </div>
+</header>
+
+<!-- BODY -->
+<div class="app-body">
+
+  <!-- LEFT PANEL -->
+  <aside class="left-panel">
+
+    <!-- Upload -->
+    <div class="panel-section">
+      <div class="panel-title">01 — Upload Document</div>
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="drop-icon">📄</div>
+        <div class="drop-title">Drop PDF here</div>
+        <div class="drop-sub">or click to browse</div>
+      </div>
+      <input type="file" id="file-input" accept=".pdf">
+      <div class="file-loaded" id="file-loaded">
+        <span>📋</span>
+        <span class="file-name" id="file-name">—</span>
+        <span class="file-pages" id="file-pages">0 pp</span>
+      </div>
+      <div class="progress-bar-wrap" id="progress-wrap">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-label" id="progress-label">Reading PDF…</div>
+    </div>
+
+    <!-- Theme -->
+    <div class="panel-section">
+      <div class="panel-title">02 — Choose Theme</div>
+      <div class="style-grid">
+        <div class="style-card selected" data-theme="navy" onclick="selectTheme(this)">
+          <div class="style-swatch" style="background:linear-gradient(135deg,#1a0a2e 60%,#c8933a 100%);"></div>
+          <div class="style-name">Classic Navy</div>
+        </div>
+        <div class="style-card" data-theme="teal" onclick="selectTheme(this)">
+          <div class="style-swatch" style="background:linear-gradient(135deg,#0a3d0a 60%,#e8a020 100%);"></div>
+          <div class="style-name">Medical Teal</div>
+        </div>
+        <div class="style-card" data-theme="charcoal" onclick="selectTheme(this)">
+          <div class="style-swatch" style="background:linear-gradient(135deg,#0d1b2a 60%,#c8a03c 100%);"></div>
+          <div class="style-name">Treasury</div>
+        </div>
+        <div class="style-card" data-theme="blue" onclick="selectTheme(this)">
+          <div class="style-swatch" style="background:linear-gradient(135deg,#0d2a5e 60%,#1a6fc4 100%);"></div>
+          <div class="style-name">Blue Steel</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Post details -->
+    <div class="panel-section">
+      <div class="panel-title">03 — Post Details</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(200,160,60,0.6);margin-bottom:5px;">Blog Title</div>
+          <input type="text" id="post-title" class="edit-field" placeholder="Enter blog post title…" style="background:#0a1520;color:#fff;border-color:rgba(200,160,60,0.2);">
+        </div>
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(200,160,60,0.6);margin-bottom:5px;">Labels (comma separated)</div>
+          <input type="text" id="post-labels" class="edit-field" value="CGHS, Medical, CSMA" placeholder="CGHS, Medical…" style="background:#0a1520;color:#fff;border-color:rgba(200,160,60,0.2);">
+        </div>
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(200,160,60,0.6);margin-bottom:5px;">Drive PDF Link (optional)</div>
+          <input type="text" id="drive-link" class="edit-field" placeholder="https://drive.google.com/…" style="background:#0a1520;color:#fff;border-color:rgba(200,160,60,0.2);">
+        </div>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div class="panel-section">
+      <div class="panel-title">04 — Options</div>
+      <div class="option-row">
+        <div class="option-label" style="color:rgba(255,255,255,0.6);">Cover image</div>
+        <button class="toggle on" id="opt-cover" onclick="this.classList.toggle('on')"></button>
+      </div>
+      <div class="option-row">
+        <div class="option-label" style="color:rgba(255,255,255,0.6);">Summary box</div>
+        <button class="toggle on" id="opt-summary" onclick="this.classList.toggle('on')"></button>
+      </div>
+      <div class="option-row">
+        <div class="option-label" style="color:rgba(255,255,255,0.6);">To list</div>
+        <button class="toggle on" id="opt-to" onclick="this.classList.toggle('on')"></button>
+      </div>
+      <div class="option-row" style="border:none;">
+        <div class="option-label" style="color:rgba(255,255,255,0.6);">Download button</div>
+        <button class="toggle on" id="opt-download" onclick="this.classList.toggle('on')"></button>
+      </div>
+    </div>
+
+    <!-- Convert -->
+    <div class="panel-section" style="border-bottom:none;">
+      <button class="convert-btn" id="convert-btn" onclick="convertPDF()" disabled>
+        <div class="spinner"></div>
+        <span class="btn-text">✦ Generate Post</span>
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- RIGHT PANEL -->
+  <main class="right-panel">
+
+    <div class="output-toolbar">
+      <div class="output-title" id="output-title">Ready to convert</div>
+      <div class="toolbar-actions">
+        <button class="tool-btn" id="btn-copy" onclick="copyHTML()" disabled>⎘ Copy HTML</button>
+        <button class="tool-btn" id="btn-dl" onclick="downloadHTML()" disabled>↓ Download</button>
+        <button class="tool-btn primary" id="btn-regen" onclick="convertPDF()" disabled>↺ Regenerate</button>
+      </div>
+    </div>
+
+    <div class="output-tabs">
+      <button class="out-tab active" onclick="switchTab('preview', this)">Preview</button>
+      <button class="out-tab" onclick="switchTab('html', this)">HTML Source</button>
+      <button class="out-tab" onclick="switchTab('extracted', this)">Extracted Text</button>
+    </div>
+
+    <div class="output-area">
+
+      <!-- PREVIEW TAB -->
+      <div id="tab-preview" class="section active">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">📋</div>
+          <div class="empty-title">Upload a PDF to begin</div>
+          <div class="empty-sub">Drop any Government OM / circular / order</div>
+        </div>
+        <div class="preview-wrap" id="preview-wrap" style="display:none;">
+          <div id="post-preview"></div>
+        </div>
+      </div>
+
+      <!-- HTML SOURCE TAB -->
+      <div id="tab-html" class="section">
+        <div style="padding:24px 32px;">
+          <textarea class="code-area" id="html-source" readonly placeholder="HTML will appear here after conversion…"></textarea>
+        </div>
+      </div>
+
+      <!-- EXTRACTED TEXT TAB -->
+      <div id="tab-extracted" class="section extracted-panel active" id="extracted-panel">
+        <div class="empty-state" id="empty-extract">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-title">No document loaded</div>
+          <div class="empty-sub">Upload a PDF to see extracted content</div>
+        </div>
+        <div id="extracted-content"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── PDF.js setup ──
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let pdfData = null;       // extracted OM data
+let selectedTheme = 'navy';
+let pdfRaw = null;        // raw ArrayBuffer
+
+// ── Theme colours ──
+const THEMES = {
+  navy:     { primary:'#1a0a2e', accent:'#c8933a', accentL:'#f9f7f2', border:'#d0c8b4', thBorder:'#2e1a4e' },
+  teal:     { primary:'#0a3d0a', accent:'#e8a020', accentL:'#f7faf7', border:'#c8d8c8', thBorder:'#1a5c1a' },
+  charcoal: { primary:'#0d1b2a', accent:'#c8a03c', accentL:'#f5f1e8', border:'#d4c89a', thBorder:'#1e2d3d' },
+  blue:     { primary:'#0d2a5e', accent:'#1a6fc4', accentL:'#f5f8ff', border:'#c0cfe8', thBorder:'#1a3a7a' },
+};
+
+// ── Drag & drop ──
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') loadPDF(file);
+});
+
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) loadPDF(e.target.files[0]);
+});
+
+function selectTheme(el) {
+  document.querySelectorAll('.style-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedTheme = el.dataset.theme;
+}
+
+// ── Load & parse PDF ──
+async function loadPDF(file) {
+  showProgress(0, 'Reading PDF…');
+  pdfRaw = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: pdfRaw }).promise;
+
+  const pages = pdf.numPages;
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-pages').textContent = pages + ' pp';
+  document.getElementById('file-loaded').classList.add('show');
+  document.getElementById('post-title').placeholder = file.name.replace('.pdf','');
+
+  showProgress(20, 'Extracting text…');
+
+  // Extract all text
+  let allText = '';
+  let pageTexts = [];
+  for (let i = 1; i <= pages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const txt = content.items.map(it => it.str).join(' ').replace(/\s+/g,' ').trim();
+    pageTexts.push(txt);
+    allText += txt + '\n\n';
+    showProgress(20 + Math.round((i/pages)*50), `Extracting page ${i} of ${pages}…`);
+  }
+
+  showProgress(75, 'Analysing structure…');
+
+  // Parse into structured data
+  pdfData = parseOM(allText, pageTexts, file.name);
+
+  showProgress(95, 'Preparing editor…');
+
+  // Show extracted
+  renderExtracted(pdfData, pageTexts);
+
+  // Auto-fill title
+  if (pdfData.date && pdfData.subject) {
+    document.getElementById('post-title').value = `${pdfData.date}. ${pdfData.subject.slice(0,100)}`;
+  }
+
+  showProgress(100, 'Done!');
+  setTimeout(() => hideProgress(), 800);
+
+  document.getElementById('convert-btn').disabled = false;
+  document.getElementById('btn-regen').disabled = false;
+
+  showToast('PDF loaded — ' + pages + ' pages extracted');
+}
+
+// ── Parse OM structure ──
+function parseOM(text, pageTexts, filename) {
+  const d = {
+    fileNo: '', ministry: '', dept: '', place: '',
+    date: '', subject: '', signedBy: '', designation: '',
+    paras: [], toList: [], copyTo: [],
+    rawText: text, filename: filename
+  };
+
+  // File number
+  const fnm = text.match(/(?:File\s*No\.?|F\.?\s*No\.?|No\.?)\s*[:\-]?\s*([A-Z0-9\/\.\-\s]{8,50}?)(?:\s*dated|\s*Government|\s*GoI|\s+\n)/i);
+  if (fnm) d.fileNo = fnm[1].replace(/\s+/g,' ').trim();
+
+  // Date
+  const dm = text.match(/[Dd]ated\s+(?:the\s+)?(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s*[,.]?\s*\d{4}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{1,2}\.\d{2}\.\d{4})/);
+  if (dm) d.date = dm[1].replace(/\s+/g,' ').trim();
+
+  // Ministry
+  if (/Ministry of Health/i.test(text)) d.ministry = 'Ministry of Health & Family Welfare';
+  else { const mm = text.match(/Ministry of ([^\n,]{5,50})/i); if (mm) d.ministry = 'Ministry of ' + mm[1].trim(); }
+
+  // Dept
+  const dpm = text.match(/(?:Directorate|Department) of ([^\n,]{3,50})/i);
+  if (dpm) d.dept = dpm[0].trim();
+
+  // Place
+  const pm = text.match(/(Nirman Bhawan|CGHS Bhawan|Kartavya Bhawan|New Delhi|North Block)[,.\n]/i);
+  if (pm) d.place = pm[1].trim() + ', New Delhi';
+
+  // Subject
+  const sm = text.match(/(?:Subject\s*[:\-]?|Sub\s*[:\-]?)\s+([^\n]{10,300})/i);
+  if (sm) d.subject = sm[1].replace(/\s+/g,' ').trim().replace(/[*]{2,}/g,'');
+
+  // Signed by
+  const sigm = text.match(/\(([A-Z][a-zA-Z\s\.]+)\)\s*\n?\s*((?:Director|Under Secretary|Deputy Secretary|Joint Secretary|Addl\.|Additional)[^\n,]{0,80})/);
+  if (sigm) { d.signedBy = sigm[1].trim(); d.designation = sigm[2].trim(); }
+
+  // Extract numbered paragraphs
+  const paraRe = /\b(\d+)\.\s+([A-Z][^.!?]{20,500}[.!?])/g;
+  let pm2;
+  while ((pm2 = paraRe.exec(text)) !== null) {
+    const content = pm2[2].replace(/\s+/g,' ').trim();
+    if (content.length > 30) d.paras.push({ num: pm2[1], text: content });
+  }
+
+  // To list
+  const toSection = text.match(/\bTo\b[\s\S]{0,20}?\n([\s\S]+?)(?:\n\s*Copy to|\n\s*Copy for|\Z)/i);
+  if (toSection) {
+    const lines = toSection[1].split('\n')
+      .map(l => l.replace(/^\d+\.\s*/, '').trim())
+      .filter(l => l.length > 5 && l.length < 150);
+    d.toList = lines.slice(0, 12);
+  }
+
+  // Copy to
+  const copySection = text.match(/Copy\s+(?:to|for information to)[:\s]+([\s\S]+?)(?:\Z|Office Order)/i);
+  if (copySection) {
+    d.copyTo = copySection[1].split('\n')
+      .map(l => l.replace(/^\d+\.\s*/, '').trim())
+      .filter(l => l.length > 5 && l.length < 100)
+      .slice(0,8);
+  }
+
+  // Extract sub-clauses i) ii) iii)
+  d.clauses = [];
+  const clauseRe = /([ivxIVX]+\)|\([ivxIVX]+\)|[a-z]\)|\([a-z]\))\s+([A-Z][^.!?]{15,300}[.!?])/g;
+  let cm;
+  while ((cm = clauseRe.exec(text)) !== null) {
+    const txt = cm[2].replace(/\s+/g,' ').trim();
+    if (txt.length > 20) d.clauses.push({ label: cm[1], text: txt });
+  }
+
+  // Determine doc type
+  d.docType = 'OM';
+  if (/Office Order/i.test(text)) d.docType = 'Office Order';
+  if (/Circular/i.test(text)) d.docType = 'Circular';
+  if (/Notification/i.test(text)) d.docType = 'Notification';
+
+  return d;
+}
+
+// ── Render extracted text panel ──
+function renderExtracted(d, pageTexts) {
+  document.getElementById('empty-extract').style.display = 'none';
+  const wrap = document.getElementById('extracted-content');
+  const fields = [
+    ['File Number', d.fileNo || '(not detected)'],
+    ['Date', d.date || '(not detected)'],
+    ['Ministry', d.ministry || '(not detected)'],
+    ['Department', d.dept || '(not detected)'],
+    ['Place', d.place || '(not detected)'],
+    ['Subject', d.subject || '(not detected)'],
+    ['Signed By', d.signedBy ? `${d.signedBy}, ${d.designation}` : '(not detected)'],
+  ];
+
+  let html = '';
+  for (const [label, val] of fields) {
+    html += `<div class="extract-section">
+      <div class="extract-section-hdr"><span>${label}</span></div>
+      <div class="extract-content">${escHtml(val)}</div>
+    </div>`;
+  }
+
+  if (d.clauses.length) {
+    html += `<div class="extract-section">
+      <div class="extract-section-hdr"><span>Clauses / Provisions (${d.clauses.length} detected)</span></div>
+      <div class="extract-content">${d.clauses.slice(0,10).map(c=>`${c.label} ${escHtml(c.text)}`).join('\n')}</div>
+    </div>`;
+  }
+
+  html += `<div class="extract-section">
+    <div class="extract-section-hdr"><span>Raw Text (Page 1)</span></div>
+    <div class="extract-content">${escHtml((pageTexts[0]||'').slice(0,600))}…</div>
+  </div>`;
+
+  wrap.innerHTML = html;
+}
+
+// ── Generate Blogger post HTML ──
+function generatePost(d, theme, opts) {
+  const T = THEMES[theme];
+  const title = document.getElementById('post-title').value || d.subject || 'Office Memorandum';
+  const driveLink = document.getElementById('drive-link').value || 'YOUR_DRIVE_LINK';
+
+  const badge = (txt, bg, fg='#fff') =>
+    `<span style="display:inline-block;background:${bg};color:${fg};font-size:9px;font-weight:bold;letter-spacing:1px;padding:2px 7px;border-radius:3px;vertical-align:middle;margin-right:6px;">${txt}</span>`;
+
+  let html = '';
+
+  // ── HEADER ──
+  html += `
+<table style="width:100%;border:2px solid ${T.primary};border-collapse:collapse;margin-bottom:0;">
+  <tr>
+    <td style="background:${T.primary};padding:13px 16px;width:55%;border-right:1px solid rgba(255,255,255,0.1);">
+      <div style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:${T.accent};margin-bottom:5px;">File No.</div>
+      <div style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:14px;font-weight:bold;color:#ffffff;">${escHtml(d.fileNo || 'F. No. ______')}</div>
+    </td>
+    <td style="background:${T.primary};padding:13px 16px;text-align:right;">
+      <div style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:${T.accent};margin-bottom:5px;">Issued From &middot; Date</div>
+      <div style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:13px;font-weight:bold;color:#ffffff;">${escHtml(d.place||'New Delhi')} &middot; ${escHtml(d.date||'')}</div>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" style="background:${T.accent};padding:8px 16px;text-align:center;">
+      <span style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${T.primary};font-weight:bold;">${escHtml(d.ministry||'Government of India')}${d.dept ? ' &nbsp;&middot;&nbsp; ' + escHtml(d.dept) : ''}</span>
+    </td>
+  </tr>
+</table>`;
+
+  // ── OM TITLE ──
+  html += `
+<div style="text-align:center;margin:20px 0 16px;">
+  <span style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:18px;font-weight:bold;color:${T.primary};letter-spacing:4px;text-transform:uppercase;border-bottom:3px solid ${T.accent};padding-bottom:6px;">${d.docType}</span>
+</div>`;
+
+  // ── SUBJECT ──
+  if (d.subject) {
+    html += `
+<div style="margin:16px 0 18px;padding:12px 16px 12px 18px;background:${T.accentL};border:1px solid ${T.border};border-left:5px solid ${T.primary};">
+  <div style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:${T.accent};margin-bottom:6px;">Subject</div>
+  <div style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:15px;font-weight:bold;color:${T.primary};line-height:1.5;">${escHtml(d.subject)}</div>
+</div>
+<div style="text-align:center;letter-spacing:12px;color:${T.accent};font-size:14px;margin:10px 0 18px;">&#10022; &#10022; &#10022; &#10022;</div>`;
+  }
+
+  // ── PARAGRAPHS ──
+  if (d.paras.length) {
+    for (const p of d.paras.slice(0, 6)) {
+      html += `<p style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:14px;line-height:1.85;color:#222;margin-bottom:14px;text-align:justify;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${escHtml(p.text)}</p>`;
+    }
+  } else {
+    // fallback: first ~600 chars as intro
+    const intro = d.rawText.slice(0, 600).replace(/\s+/g,' ').trim();
+    html += `<p style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:14px;line-height:1.85;color:#222;margin-bottom:14px;text-align:justify;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${escHtml(intro)}…</p>`;
+  }
+
+  // ── CLAUSES TABLE ──
+  if (d.clauses.length > 1) {
+    html += `
+<div style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:${T.primary};margin:22px 0 8px;border-left:4px solid ${T.accent};padding-left:11px;">Provisions &amp; Instructions</div>
+<div style="border:1px solid ${T.border};border-top:3px solid ${T.primary};background:#ffffff;padding:14px 16px;margin-bottom:18px;">
+<table style="width:100%;border-collapse:collapse;font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:13.5px;">
+  <tr>
+    <th style="background:${T.primary};padding:8px 12px;color:${T.accent};font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:normal;text-align:center;width:56px;white-space:nowrap;border:1px solid ${T.thBorder};">Cl.</th>
+    <th style="background:${T.primary};padding:8px 12px;color:${T.accent};font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:normal;text-align:left;border:1px solid ${T.thBorder};">Provision</th>
+  </tr>`;
+    d.clauses.slice(0, 12).forEach((c, i) => {
+      const bg = i%2===0 ? '#ffffff' : T.accentL;
+      html += `<tr><td style="background:${bg};padding:9px 12px;border:1px solid ${T.border};text-align:center;font-weight:bold;color:${T.accent};white-space:nowrap;">${escHtml(c.label)}</td><td style="background:${bg};padding:9px 12px;border:1px solid ${T.border};color:#222;line-height:1.75;">${escHtml(c.text)}</td></tr>`;
+    });
+    html += `</table></div>`;
+  }
+
+  // ── SIGNATURE ──
+  if (d.signedBy) {
+    html += `
+<table style="width:100%;border-collapse:collapse;margin:14px 0 22px;">
+  <tr><td style="width:50%;"></td>
+  <td style="border:1px solid ${T.border};border-top:3px solid ${T.accent};padding:14px 20px;text-align:center;background:${T.accentL};">
+    <div style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:16px;font-weight:bold;color:${T.primary};margin-bottom:5px;">(${escHtml(d.signedBy)})</div>
+    <div style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#666;">${escHtml(d.designation)}</div>
+  </td></tr>
+</table>`;
+  }
+
+  // ── TO LIST ──
+  if (opts.to && d.toList.length) {
+    html += `
+<div style="margin:18px 0;">
+  <div style="background:${T.primary};padding:9px 16px;">${badge('TO',T.accent,T.primary)}<span style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.6);">Distribution</span></div>
+  <div style="border:1px solid ${T.border};border-top:none;padding:14px 16px;background:${T.accentL};font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:13px;color:#222;line-height:2.1;">
+    ${d.toList.map((l,i) => `${i+1}. ${escHtml(l)}`).join('<br>')}
+  </div>
+</div>`;
+  }
+
+  // ── DIVIDER ──
+  html += `<div style="text-align:center;margin:26px 0;border-top:1px solid ${T.border};"><span style="display:inline-block;background:#ffffff;padding:0 12px;margin-top:-11px;color:${T.accent};font-size:14px;">&#9670;</span></div>`;
+
+  // ── SUMMARY BOX ──
+  if (opts.summary) {
+    const points = d.clauses.length
+      ? d.clauses.slice(0,6).map(c => `<tr style="border-bottom:1px dashed ${T.border};"><td style="padding:6px 4px;color:${T.accent};width:18px;vertical-align:top;">&#9658;</td><td style="padding:6px 8px;color:#222;line-height:1.65;font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:13px;"><strong>${escHtml(c.label)}</strong> ${escHtml(c.text.slice(0,120))}${c.text.length>120?'…':''}</td></tr>`).join('')
+      : d.paras.slice(0,5).map(p => `<tr style="border-bottom:1px dashed ${T.border};"><td style="padding:6px 4px;color:${T.accent};width:18px;vertical-align:top;">&#9658;</td><td style="padding:6px 8px;color:#222;line-height:1.65;font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:13px;">${escHtml(p.text.slice(0,150))}${p.text.length>150?'…':''}</td></tr>`).join('');
+
+    html += `
+<div style="margin:16px 0;">
+  <div style="background:${T.primary};padding:9px 16px;">${badge('SUMMARY',T.accent,T.primary)}<span style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.6);">Quick Reference</span></div>
+  <div style="border:1px solid ${T.border};border-top:none;padding:16px 18px;background:${T.accentL};">
+    <div style="font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:14px;font-weight:bold;color:${T.primary};margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid ${T.border};">${escHtml(d.fileNo)} &nbsp;&middot;&nbsp; ${escHtml(d.date)}</div>
+    <table style="width:100%;border-collapse:collapse;">${points}</table>
+  </div>
+</div>`;
+  }
+
+  // ── DOWNLOAD BUTTON ──
+  if (opts.download) {
+    html += `
+<div style="text-align:center;margin:26px 0 10px;">
+  <a href="${escHtml(driveLink)}" target="_blank" style="display:inline-block;background:${T.primary};color:#ffffff;text-decoration:none;padding:12px 32px;font-family:'Malgun Gothic','Segoe UI',Tahoma,Geneva,sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;border:2px solid ${T.primary};box-shadow:4px 4px 0 ${T.accent};">
+    &#8681;&nbsp;&nbsp;Download ${escHtml(d.docType)} &mdash; ${escHtml(d.fileNo||'')} &nbsp;&middot;&nbsp; ${escHtml(d.date||'')}
+  </a>
+</div>`;
+  }
+
+  return html;
+}
+
+// ── Convert action ──
+async function convertPDF() {
+  if (!pdfData) { showToast('Please upload a PDF first'); return; }
+
+  const btn = document.getElementById('convert-btn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  showProgress(30, 'Building post…');
+
+  const opts = {
+    cover:    document.getElementById('opt-cover').classList.contains('on'),
+    summary:  document.getElementById('opt-summary').classList.contains('on'),
+    to:       document.getElementById('opt-to').classList.contains('on'),
+    download: document.getElementById('opt-download').classList.contains('on'),
+  };
+
+  await sleep(300);
+  showProgress(60, 'Applying theme…');
+  await sleep(200);
+
+  const postHTML = generatePost(pdfData, selectedTheme, opts);
+  const T = THEMES[selectedTheme];
+
+  showProgress(90, 'Rendering preview…');
+  await sleep(100);
+
+  // Render preview
+  document.getElementById('empty-state').style.display = 'none';
+  const pw = document.getElementById('preview-wrap');
+  pw.style.display = 'block';
+  document.getElementById('post-preview').innerHTML = `<div class="post-wrap post-${selectedTheme}">${postHTML}</div>`;
+
+  // Set HTML source
+  const fullHTML = `<!-- Blogger Post HTML -->\n<!-- Title: ${document.getElementById('post-title').value} -->\n<!-- Labels: ${document.getElementById('post-labels').value} -->\n\n${postHTML}`;
+  document.getElementById('html-source').value = fullHTML;
+
+  // Update toolbar
+  const title = document.getElementById('post-title').value || pdfData.subject || 'Post';
+  document.getElementById('output-title').textContent = title.slice(0,60) + (title.length>60?'…':'');
+  document.getElementById('btn-copy').disabled = false;
+  document.getElementById('btn-dl').disabled = false;
+
+  showProgress(100, 'Done!');
+  setTimeout(() => hideProgress(), 600);
+
+  btn.disabled = false;
+  btn.classList.remove('loading');
+  switchTab('preview', document.querySelector('.out-tab'));
+
+  showToast('Post generated! Switch tabs to copy HTML.');
+}
+
+// ── Tab switching ──
+function switchTab(tab, el) {
+  document.querySelectorAll('.out-tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  else document.querySelector(`.out-tab:nth-child(${['preview','html','extracted'].indexOf(tab)+1})`).classList.add('active');
+
+  document.getElementById('tab-preview').classList.toggle('active', tab==='preview');
+  document.getElementById('tab-html').classList.toggle('active', tab==='html');
+  document.getElementById('tab-extracted').classList.toggle('active', tab==='extracted');
+  document.getElementById('tab-extracted').style.display = tab==='extracted'?'block':'none';
+}
+
+// ── Copy HTML ──
+function copyHTML() {
+  const src = document.getElementById('html-source').value;
+  if (!src) { showToast('Nothing to copy yet'); return; }
+  navigator.clipboard.writeText(src).then(() => showToast('HTML copied to clipboard!'));
+}
+
+// ── Download HTML ──
+function downloadHTML() {
+  const src = document.getElementById('html-source').value;
+  if (!src) return;
+  const title = (document.getElementById('post-title').value || 'blogger_post').replace(/[^a-z0-9]/gi,'_').toLowerCase();
+  const blob = new Blob([src], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href:url, download: title+'.html' });
+  a.click(); URL.revokeObjectURL(url);
+  showToast('Downloaded: ' + title + '.html');
+}
+
+// ── Progress helpers ──
+function showProgress(pct, label) {
+  document.getElementById('progress-wrap').classList.add('show');
+  document.getElementById('progress-label').classList.add('show');
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+
+function hideProgress() {
+  document.getElementById('progress-wrap').classList.remove('show');
+  document.getElementById('progress-label').classList.remove('show');
+  document.getElementById('progress-fill').style.width = '0%';
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Utils ──
+function escHtml(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Animate bars on load ──
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.querySelectorAll('.del-fill').forEach(el => {
+      el.style.transform = 'scaleX(1)';
+    });
+  }, 400);
+});
+</script>
+</body>
+</html>
